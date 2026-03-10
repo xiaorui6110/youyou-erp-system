@@ -1,3 +1,4 @@
+# environment config (dev / prod)
 spring:
-  application:
-    name: youyou-erp-system
+  profiles:
+    active: dev
