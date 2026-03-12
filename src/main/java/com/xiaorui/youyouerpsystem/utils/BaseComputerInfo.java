@@ -1,4 +1,4 @@
-package com.xiaorui.youyouerpsystem.common.info;
+package com.xiaorui.youyouerpsystem.utils;
 
 
 import java.io.BufferedReader;

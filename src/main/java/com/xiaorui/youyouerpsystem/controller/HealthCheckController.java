@@ -1,6 +1,7 @@
 package com.xiaorui.youyouerpsystem.controller;
 
-
+import com.xiaorui.youyouerpsystem.common.response.ServerResponseEntity;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -13,9 +14,9 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 public class HealthCheckController {
 
-    @RequestMapping("/check")
-    public String check() {
-        return "success";
+    @PostMapping("/check")
+    public ServerResponseEntity<String> check() {
+        return ServerResponseEntity.success("ok");
     }
 
 }

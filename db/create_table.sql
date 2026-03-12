@@ -6,7 +6,7 @@ DEFAULT COLLATE utf8mb4_unicode_ci;
 USE `youyou-erp-system`;
 
 CREATE TABLE `youyou_user` (
-    `user_id` bigint(20) NOT NULL AUTO_INCREMENT COMMENT '用户主键',
+    `user_id` varchar(100) NOT NULL COMMENT '用户主键',
     `login_name` varchar(255) NOT NULL COMMENT '登录用户名',
     `login_password` varchar(50) DEFAULT NULL COMMENT '登录密码',
     `user_name` varchar(255) NOT NULL COMMENT '用户姓名',
@@ -22,7 +22,7 @@ CREATE TABLE `youyou_user` (
     `is_system` tinyint(4) NOT NULL DEFAULT '0' COMMENT '是否系统自带数据',
     `is_leader` varchar(1) DEFAULT '0' COMMENT '是否经理，0-否，1-是',
     `weixin_open_id` varchar(100) DEFAULT NULL COMMENT '微信绑定id',
-    `tenant_id` bigint(20) DEFAULT NULL COMMENT '租户id',
+    `tenant_id` varchar(100) DEFAULT NULL COMMENT '租户id',
     `create_time` datetime DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
     `update_time` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
     `is_deleted` varchar(1) DEFAULT '0' COMMENT '删除标记，0-未删除，1-删除',

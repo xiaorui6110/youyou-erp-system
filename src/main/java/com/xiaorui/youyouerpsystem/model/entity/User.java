@@ -31,7 +31,7 @@ public class User implements Serializable {
      * 用户主键（雪花算法）
      */
     @TableId(value = "user_id", type = IdType.ASSIGN_ID)
-    private Long userId;
+    private String userId;
 
     /**
      * 登录用户名
@@ -127,7 +127,7 @@ public class User implements Serializable {
      * 租户id
      */
     @TableField("tenant_id")
-    private Long tenantId;
+    private String tenantId;
 
     /**
      * 创建时间

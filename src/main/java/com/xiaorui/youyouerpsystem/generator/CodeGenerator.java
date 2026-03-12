@@ -3,19 +3,10 @@ package com.xiaorui.youyouerpsystem.generator;
 import cn.hutool.core.lang.Dict;
 import cn.hutool.setting.yaml.YamlUtil;
 import com.baomidou.mybatisplus.generator.FastAutoGenerator;
-import com.baomidou.mybatisplus.generator.config.DataSourceConfig;
-import com.baomidou.mybatisplus.generator.config.GlobalConfig;
-import com.baomidou.mybatisplus.generator.config.OutputFile;
-import com.baomidou.mybatisplus.generator.config.PackageConfig;
-import com.baomidou.mybatisplus.generator.config.rules.DateType;
 import com.baomidou.mybatisplus.generator.engine.FreemarkerTemplateEngine;
-import com.baomidou.mybatisplus.generator.keywords.MySqlKeyWordsHandler;
-import jakarta.validation.constraints.NotNull;
 
 import java.io.File;
 import java.nio.file.Paths;
-import java.util.Arrays;
-import java.util.Collections;
 import java.util.Map;
 
 import static com.baomidou.mybatisplus.generator.config.rules.DateType.TIME_PACK;

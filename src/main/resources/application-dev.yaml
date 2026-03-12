@@ -85,7 +85,7 @@ springdoc:
   group-configs:
     - group: 'default'
       paths-to-match: '/**'
-      packages-to-scan: com.xiaorui.youyourrpsystem.controller
+      packages-to-scan: com.xiaorui.youyouerpsystem.controller
 # knife4j 接口文档
 knife4j:
   enable: true

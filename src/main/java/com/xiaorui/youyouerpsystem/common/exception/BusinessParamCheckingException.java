@@ -19,10 +19,10 @@ public class BusinessParamCheckingException extends RuntimeException {
 
     @Serial
     private static final long serialVersionUID = 1L;
-    private final int code;
+    private final String code;
     private final Map<String, Object> data;
 
-    public BusinessParamCheckingException(int code, String reason) {
+    public BusinessParamCheckingException(String code, String reason) {
         super(reason);
         Map<String, Object> objectMap = new HashMap<>();
         objectMap.put("message", reason);
@@ -30,7 +30,7 @@ public class BusinessParamCheckingException extends RuntimeException {
         this.data = objectMap;
     }
 
-    public BusinessParamCheckingException(int code, String reason, Throwable throwable) {
+    public BusinessParamCheckingException(String code, String reason, Throwable throwable) {
         super(reason, throwable);
         Map<String, Object> objectMap = new HashMap<>();
         objectMap.put("message", reason);

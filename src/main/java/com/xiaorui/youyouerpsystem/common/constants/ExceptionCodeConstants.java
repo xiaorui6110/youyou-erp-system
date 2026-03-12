@@ -12,7 +12,7 @@ public interface ExceptionCodeConstants {
     /**
      * 用户错误码定义
      */
-    public class UserExceptionCode {
+    class UserExceptionCode {
 
         /**
          * 用户不存在

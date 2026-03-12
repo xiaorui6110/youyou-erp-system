@@ -19,10 +19,10 @@ public class BusinessRunTimeException extends RuntimeException {
 
     @Serial
     private static final long serialVersionUID = 1L;
-    private final int code;
+    private final String code;
     private final Map<String, Object> data;
 
-    public BusinessRunTimeException(int code, String reason) {
+    public BusinessRunTimeException(String code, String reason) {
         super(reason);
         Map<String, Object> objectMap = new HashMap<>();
         objectMap.put("message", reason);
@@ -30,7 +30,7 @@ public class BusinessRunTimeException extends RuntimeException {
         this.data = objectMap;
     }
 
-    public BusinessRunTimeException(int code, String reason, Throwable throwable) {
+    public BusinessRunTimeException(String code, String reason, Throwable throwable) {
         super(reason, throwable);
         Map<String, Object> objectMap = new HashMap<>();
         objectMap.put("message", reason);
