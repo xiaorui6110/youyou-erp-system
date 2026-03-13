@@ -4,6 +4,7 @@ import cn.hutool.core.lang.Dict;
 import cn.hutool.setting.yaml.YamlUtil;
 import com.baomidou.mybatisplus.generator.FastAutoGenerator;
 import com.baomidou.mybatisplus.generator.engine.FreemarkerTemplateEngine;
+import lombok.extern.slf4j.Slf4j;
 
 import java.io.File;
 import java.nio.file.Paths;
@@ -18,12 +19,13 @@ import static com.baomidou.mybatisplus.generator.config.rules.DateType.TIME_PACK
  * @date: 2026-03-06 21:14
  **/
 
+@Slf4j
 public class CodeGenerator {
 
     /**
      * ⏰ 需要生成的表名（每次修改表名生成，并修改自定义生成风格的信息）
      */
-    private static final String TABLE_NAMES = "youyou_user";
+    private static final String TABLE_NAMES = "youyou_tenant";
 
     public static void main(String[] args) {
 
@@ -64,7 +66,7 @@ public class CodeGenerator {
                 // 使用 Freemarker 模板引擎
                 .templateEngine(new FreemarkerTemplateEngine())
                 .execute(); // 执行生成
-
+        System.out.println("execute success");
     }
 
 }

@@ -12,6 +12,8 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.*;
 
 import static java.util.regex.Pattern.compile;
@@ -573,17 +575,18 @@ public class Tools {
         return new SimpleDateFormat(pattern).parse(strDate);
     }
 
+
     /**
      * 日期加减天数
      */
-    public static Date addDays(Date date, int num) {
+    public static LocalDateTime addDays(LocalDateTime date, int num) {
         Calendar calendar = Calendar.getInstance();
         // 需要将date数据转移到Calender对象中操作
-        calendar.setTime(date);
+        calendar.setTime(Date.from(date.atZone(ZoneId.systemDefault()).toInstant()));
         // 把日期往后增加n天.正数往后推,负数往前移动
         calendar.add(Calendar.DATE, num);
         // 这个时间就是日期往后推一天的结果
-        date=calendar.getTime();
+        date = LocalDateTime.ofInstant(calendar.getTime().toInstant(), ZoneId.systemDefault());
         return date;
     }
 

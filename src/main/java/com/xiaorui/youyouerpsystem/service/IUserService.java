@@ -153,8 +153,14 @@ public interface IUserService extends IService<User> {
      */
     User getCurrentUser();
 
+    // ============================= 扩展方法 =============================
 
 
-
+    /**
+     * 检查登录名不能重复
+     *
+     * @param userVO 用户信息
+     */
+    void checkLoginName(UserVO userVO);
 
 }

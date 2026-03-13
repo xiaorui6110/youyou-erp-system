@@ -13,8 +13,10 @@ import com.xiaorui.youyouerpsystem.common.exception.BusinessRunTimeException;
 import com.xiaorui.youyouerpsystem.common.exception.LoggerException;
 import com.xiaorui.youyouerpsystem.common.response.BusinessCodeEnum;
 import com.xiaorui.youyouerpsystem.mapper.UserMapper;
+import com.xiaorui.youyouerpsystem.model.entity.Tenant;
 import com.xiaorui.youyouerpsystem.model.entity.User;
 import com.xiaorui.youyouerpsystem.model.vo.UserVO;
+import com.xiaorui.youyouerpsystem.service.ITenantService;
 import com.xiaorui.youyouerpsystem.service.IUserService;
 import com.xiaorui.youyouerpsystem.utils.RedisUtil;
 import com.xiaorui.youyouerpsystem.utils.ResponseUtil;
@@ -25,6 +27,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.BeanUtils;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -56,10 +59,16 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
     private static final String ERROR_INFO = "操作失败";
 
     @Resource
+    private ITenantService tenantService;
+    @Resource
     private RedisUtil redisUtil;
     @Resource
     private StringRedisTemplate stringRedisTemplate;
 
+    @Value("${youyou.tenant.user-num-limit}")
+    private Integer userNumLimit;
+    @Value("${youyou.tenant.try-day-limit}")
+    private Integer tryDayLimit;
 
     // ============================= 基础业务 =============================
 
@@ -86,14 +95,31 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
             } catch (Exception e) {
                 LoggerException.writeFail(logger, e);
             }
-            // TODO 更新租户id
+            // 更新租户id
             User user = new User();
             user.setUserId(userVO.getUserId());
             user.setTenantId(userVO.getTenantId());
-            //updateUserTenant(user);
-            // TODO 新增用户与角色的关系
+            updateById(user);
 
-            // TODO 创建租户信息
+            // TODO 新增用户与角色的关系 - UserBusiness
+
+            // 创建租户信息
+            Tenant tenant = new Tenant();
+            tenant.setTenantId(userVO.getTenantId());
+            tenant.setUserNumLimit(userVO.getUserNumLimit());
+            tenant.setCreateTime(LocalDateTime.now());
+            tenant.setUpdateTime(LocalDateTime.now());
+            tenant.setCreateTime(LocalDateTime.now());
+            if (tenant.getUserNumLimit() == null) {
+                // 默认用户限制数量
+                tenant.setUserNumLimit(userNumLimit);
+            }
+            if (tenant.getExpireTime() == null) {
+                // 租户允许试用的天数
+                tenant.setExpireTime(Tools.addDays(LocalDateTime.now(), tryDayLimit));
+            }
+            tenantService.saveOrUpdate(tenant);
+            logger.info("===============创建租户信息完成===============");
         }
     }
 
@@ -422,6 +448,39 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
     }
 
 
+    // ============================= 扩展方法 =============================
+
+
+    @Override
+    public void checkLoginName(UserVO userVO) {
+        if (userVO == null) {
+            return;
+        }
+        String userId = userVO.getUserId();
+        // 检查登录名
+        if (StrUtil.isNotEmpty(userVO.getLoginName())){
+            String loginName = userVO.getLoginName();
+            List<User> list = getUserListByloginName(loginName);
+            if (list != null && !list.isEmpty()){
+                if (list.size() > 1) {
+                    // 超过一条数据存在，该登录名已存在
+                    logger.error("异常码[{}],异常提示[{}],参数,loginName:[{}]",
+                            ExceptionConstants.USER_LOGIN_NAME_ALREADY_EXISTS_CODE,ExceptionConstants.USER_LOGIN_NAME_ALREADY_EXISTS_MSG,loginName);
+                    throw new BusinessRunTimeException(ExceptionConstants.USER_LOGIN_NAME_ALREADY_EXISTS_CODE,
+                            ExceptionConstants.USER_LOGIN_NAME_ALREADY_EXISTS_MSG);
+                }
+                // 一条数据，新增时抛出异常，修改时和当前的id不同时抛出异常
+                if (userId == null || !userId.equals(list.getFirst().getUserId())) {
+                    logger.error("异常码[{}],异常提示[{}],参数,loginName:[{}]",
+                            ExceptionConstants.USER_LOGIN_NAME_ALREADY_EXISTS_CODE, ExceptionConstants.USER_LOGIN_NAME_ALREADY_EXISTS_MSG, loginName);
+                    throw new BusinessRunTimeException(ExceptionConstants.USER_LOGIN_NAME_ALREADY_EXISTS_CODE,
+                            ExceptionConstants.USER_LOGIN_NAME_ALREADY_EXISTS_MSG);
+                }
+            }
+        }
+    }
+
+
     // ============================= 私有方法 =============================
 
 
@@ -541,5 +600,22 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
         }
         return userId;
     }
+
+    /**
+     * 通过登录名获取用户列表
+     * */
+    public List<User> getUserListByloginName(String loginName){
+        List<User> list =null;
+        try {
+            QueryWrapper<User> queryWrapper = new QueryWrapper<>();
+            queryWrapper.eq("login_name", loginName);
+            queryWrapper.ne("is_deleted", BusinessConstants.DELETE_FLAG_DELETED);
+            list = list(queryWrapper);
+        } catch (Exception e) {
+            LoggerException.readFail(logger, e);
+        }
+        return list;
+    }
+
 
 }
