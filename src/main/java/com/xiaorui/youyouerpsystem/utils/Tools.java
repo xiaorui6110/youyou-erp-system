@@ -97,8 +97,8 @@ public class Tools {
      * 将日期的字符串格式转为时间格式
      */
     public static Date strToDate(String dateString) throws ParseException {
-        SimpleDateFormat formatter = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss"); // 日期格式
-        return formatter.parse(dateString); // 字符串转换为Date
+        SimpleDateFormat formatter = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+        return formatter.parse(dateString);
     }
     /**
      * 获取指定日期格式 yyyy-MM-dd

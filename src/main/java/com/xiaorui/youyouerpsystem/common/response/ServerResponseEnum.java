@@ -9,7 +9,7 @@ import lombok.Getter;
  * @date: 2026-03-11 22:46
  **/
 
-public enum ResponseEnum {
+public enum ServerResponseEnum {
 
     /**
      * ok
@@ -50,7 +50,7 @@ public enum ResponseEnum {
         return code;
     }
 
-    ResponseEnum(String code, String msg) {
+    ServerResponseEnum(String code, String msg) {
         this.code = code;
         this.msg = msg;
     }

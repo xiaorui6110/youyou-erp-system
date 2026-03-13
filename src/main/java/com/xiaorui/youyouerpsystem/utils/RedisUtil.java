@@ -1,6 +1,7 @@
 package com.xiaorui.youyouerpsystem.utils;
 
 
+import cn.hutool.core.util.StrUtil;
 import com.xiaorui.youyouerpsystem.common.constants.BusinessConstants;
 import jakarta.annotation.Resource;
 import jakarta.servlet.http.HttpServletRequest;
@@ -21,7 +22,7 @@ import java.util.concurrent.TimeUnit;
  **/
 @Slf4j
 @Component
-public class RedisServiceUtil {
+public class RedisUtil {
 
     @Resource
     public RedisTemplate<String, Object> redisTemplate;
@@ -227,8 +228,8 @@ public class RedisServiceUtil {
      * 根据用户ID移除Redis中的用户信息
      * @param userId 用户ID
      */
-    public void deleteObjectByUser(Long userId) {
-        if (userId == null) {
+    public void deleteObjectByUser(String userId) {
+        if (StrUtil.isBlank(userId)) {
             log.warn("deleteObjectByUser: userId为空");
             return;
         }
@@ -239,11 +240,10 @@ public class RedisServiceUtil {
                 return;
             }
 
-            String targetUserId = userId.toString();
             for (String token : tokens) {
                 if (redisTemplate.hasKey(token) && Objects.equals(redisTemplate.type(token), DataType.HASH)) {
                     Object userIdValue = redisTemplate.opsForHash().get(token, "userId");
-                    if (targetUserId.equals(userIdValue)) {
+                    if (userId.equals(userIdValue)) {
                         redisTemplate.opsForHash().delete(token, "userId");
                         log.debug("根据用户ID删除Redis缓存成功，userId: {}", userId);
                     }

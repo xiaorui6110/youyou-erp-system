@@ -1,5 +1,8 @@
 package com.xiaorui.youyouerpsystem.service.impl;
 
+import cn.hutool.captcha.CaptchaUtil;
+import cn.hutool.captcha.ShearCaptcha;
+import cn.hutool.captcha.generator.RandomGenerator;
 import cn.hutool.core.util.StrUtil;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
@@ -8,11 +11,13 @@ import com.xiaorui.youyouerpsystem.common.constants.ExceptionCodeConstants;
 import com.xiaorui.youyouerpsystem.common.constants.ExceptionConstants;
 import com.xiaorui.youyouerpsystem.common.exception.BusinessRunTimeException;
 import com.xiaorui.youyouerpsystem.common.exception.LoggerException;
+import com.xiaorui.youyouerpsystem.common.response.BusinessCodeEnum;
 import com.xiaorui.youyouerpsystem.mapper.UserMapper;
 import com.xiaorui.youyouerpsystem.model.entity.User;
 import com.xiaorui.youyouerpsystem.model.vo.UserVO;
 import com.xiaorui.youyouerpsystem.service.IUserService;
-import com.xiaorui.youyouerpsystem.utils.RedisServiceUtil;
+import com.xiaorui.youyouerpsystem.utils.RedisUtil;
+import com.xiaorui.youyouerpsystem.utils.ResponseUtil;
 import com.xiaorui.youyouerpsystem.utils.Tools;
 import jakarta.annotation.Resource;
 import jakarta.servlet.http.HttpServletRequest;
@@ -20,13 +25,18 @@ import lombok.extern.slf4j.Slf4j;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.BeanUtils;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.io.ByteArrayOutputStream;
 import java.security.NoSuchAlgorithmException;
+import java.time.LocalDateTime;
 import java.util.*;
+import java.util.concurrent.TimeUnit;
 
 /**
  * <p>
@@ -42,14 +52,22 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
 
     private final Logger logger = LoggerFactory.getLogger(UserServiceImpl.class);
 
+    private static final String SUCCESS_INFO = "操作成功";
+    private static final String ERROR_INFO = "操作失败";
+
     @Resource
-    private RedisServiceUtil redisServiceUtil;
+    private RedisUtil redisUtil;
+    @Resource
+    private StringRedisTemplate stringRedisTemplate;
+
+
+    // ============================= 基础业务 =============================
 
     @Override
     @Transactional(value = "transactionManager", rollbackFor = Exception.class)
     public void register(UserVO userVO, String manageRoleId) {
         // 多次创建事务，事务之间无法协同，应该在入口处创建一个事务以做协调
-        if(BusinessConstants.DEFAULT_MANAGER.equals(userVO.getLoginName())) {
+        if (BusinessConstants.DEFAULT_MANAGER.equals(userVO.getLoginName())) {
             throw new BusinessRunTimeException(ExceptionConstants.USER_NAME_LIMIT_USE_CODE,
                     ExceptionConstants.USER_NAME_LIMIT_USE_MSG);
         } else {
@@ -65,7 +83,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
                 save(user);
                 String userId = getIdByLoginName(userVO.getLoginName());
                 userVO.setUserId(userId);
-            } catch(Exception e) {
+            } catch (Exception e) {
                 LoggerException.writeFail(logger, e);
             }
             // TODO 更新租户id
@@ -86,7 +104,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
         String msgTip = "";
         User user = null;
         // 判断用户是否已经登录过，登录过不再处理
-        Object userId = redisServiceUtil.getObjectFromSessionByKey(request,"userId");
+        Object userId = redisUtil.getObjectFromSessionByKey(request,"userId");
         if (userId != null) {
             logger.info("==== 用户已经登录过, login 方法调用结束 ====");
             msgTip = "user already login";
@@ -94,7 +112,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
         //获取用户状态
         int userStatus = -1;
         try {
-            redisServiceUtil.deleteObjectBySession(request,"userId");
+            redisUtil.deleteObjectBySession(request,"userId");
             userStatus = validateUser(loginName, loginPassword);
         } catch (Exception e) {
             logger.error(">>>>>>>>>>>>> 用户  {} 登录 login 方法 访问服务层异常 ====", loginName, e);
@@ -128,7 +146,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
                 if (StrUtil.isNotBlank(user.getTenantId())) {
                     token = token + "_" + user.getTenantId();
                 }
-                redisServiceUtil.storageObjectBySession(token,"userId", user.getUserId());
+                redisUtil.storageObjectBySession(token,"userId", user.getUserId());
                 break;
             default:
                 break;
@@ -147,10 +165,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
                 // TODO 如果是管理员，则发送登录邮件
                 //sendEmailToCurrentUser(request, user);
             }
-            redisServiceUtil.storageObjectBySession(token,"clientIp", Tools.getLocalIp(request));
-//            logService.insertLogWithUserId(user.getUserId(), user.getTenantId(), "用户",
-//                    new StringBuffer(BusinessConstants.LOG_OPERATION_TYPE_LOGIN).append(user.getLoginName()).toString(),
-//                    ((ServletRequestAttributes) RequestContextHolder.getRequestAttributes()).getRequest());
+            redisUtil.storageObjectBySession(token,"clientIp", Tools.getLocalIp(request));
             data.put("token", token);
             data.put("user", user);
             data.put("pwdSimple", pwdSimple);
@@ -158,6 +173,125 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
         return data;
 
     }
+
+    @Override
+    public boolean logout(HttpServletRequest request) {
+        try {
+            redisUtil.deleteObjectBySession(request,"userId");
+            redisUtil.deleteObjectBySession(request,"clientIp");
+        } catch(Exception e) {
+            logger.error(e.getMessage(), e);
+        }
+        return true;
+    }
+
+
+    @Override
+    public String changePassword(String userId, String oldPassword, String newPassword, HttpServletRequest request) {
+        int flag = 0;
+        Map<String, Object> objectMap = new HashMap<>();
+        try {
+            String info = "";
+            User user = getUser(userId);
+            // 必须和原始密码一致才可以更新密码
+            if (oldPassword.equals(user.getLoginPassword())) {
+                user.setLoginPassword(newPassword);
+                user.setUpdateTime(LocalDateTime.now());
+                updateById(user);
+                // 1-成功
+                flag = 1;
+                info = "修改成功";
+            } else {
+                // 原始密码输入错误
+                flag = 2;
+                info = "原始密码输入错误";
+            }
+            objectMap.put("status", flag);
+            return ResponseUtil.returnJson(objectMap, info, BusinessCodeEnum.OK.code);
+        } catch (Exception e) {
+            logger.error(">>>>>>>>>>>>> 修改用户ID为 ： {}密码信息失败", userId, e);
+            flag = 3;
+            objectMap.put("status", flag);
+            return ResponseUtil.returnJson(objectMap, ERROR_INFO, BusinessCodeEnum.ERROR.code);
+        }
+    }
+
+    @Override
+    public boolean resetPassword(String userId, String newPassword, HttpServletRequest request) {
+        User loginUser = getUser(userId);
+        String loginName = loginUser.getLoginName();
+        if ("admin".equals(loginName)) {
+            logger.info("禁止重置超管密码");
+        } else {
+            User user = new User();
+            user.setUserId(userId);
+            user.setLoginPassword(newPassword);
+            user.setUpdateTime(LocalDateTime.now());
+            try{
+                // 判断是否登录过
+                Object loginUserId = redisUtil.getObjectFromSessionByKey(request,"userId");
+                if (loginUserId != null) {
+                    updateById(user);
+                }
+            }catch(Exception e){
+                LoggerException.writeFail(logger, e);
+            }
+        }
+        return true;
+    }
+
+    @Override
+    public boolean updateUserInfo(UserVO userVO, HttpServletRequest request) {
+
+        // TODO 修改用户及机构和用户关系
+
+        return false;
+    }
+
+    @Override
+    public boolean updateUserAvatar(MultipartFile multipartFile, HttpServletRequest request) {
+
+        // TODO 修改用户头像，待引入minio等
+
+        return false;
+    }
+
+    @Override
+    public Map<String, String> getPictureVerifyCode() {
+        // 仅包含数字的字符集
+        String characters = "0123456789";
+        // 生成4位数字验证码
+        RandomGenerator randomGenerator = new RandomGenerator(characters, 4);
+        // 定义图片的显示大小，并创建验证码对象
+        ShearCaptcha shearCaptcha = CaptchaUtil.createShearCaptcha(320, 100, 4, 4);
+        shearCaptcha.setGenerator(randomGenerator);
+        ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+        shearCaptcha.write(outputStream);
+        byte[] captchaBytes = outputStream.toByteArray();
+        String base64Captcha = Base64.getEncoder().encodeToString(captchaBytes);
+        String captchaCode = shearCaptcha.getCode();
+        // 后续使用Hutool的MD5加密（为了检查接口方便，先不加密！！！）
+        //String encryptedCaptcha = DigestUtil.md5Hex(captchaCode);
+        // 将加密后的验证码和Base64编码的图片存储到Redis中，设置过期时间为5分钟
+        stringRedisTemplate.opsForValue().set("captcha:" + captchaCode, captchaCode, 300, TimeUnit.SECONDS);
+        Map<String, String> map = new HashMap<>();
+        map.put("base64Captcha", base64Captcha);
+        map.put("encryptedCaptcha", captchaCode);
+        return map;
+    }
+
+    @Override
+    public boolean checkPictureVerifyCode(String verifyCode, String serverVerifyCode) {
+        if (verifyCode != null && serverVerifyCode != null) {
+            //  后续对用户输入的验证码进行MD5加密，然后与服务器存储的验证码进行比较（服务器中的存储的是MD5加密后的验证码）(也是先不加密！！！)
+            //String encryptedVerifycode = DigestUtil.md5Hex(verifyCode);
+            return verifyCode.equals(serverVerifyCode);
+        }
+        return false;
+    }
+
+
+    // ============================= 增删改查 =============================
 
     /**
      * 新增用户默认设置
@@ -183,7 +317,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
             if (result) {
                 return userVO;
             }
-        } catch(Exception e) {
+        } catch (Exception e) {
             LoggerException.writeFail(logger, e);
         }
         return null;
@@ -192,21 +326,104 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
     @Override
     @Transactional(value = "transactionManager", rollbackFor = Exception.class)
     public boolean deleteUser(String userId, HttpServletRequest request) {
-        return false;
+        boolean result = false;
+        StringBuilder sb = new StringBuilder();
+        sb.append(BusinessConstants.LOG_OPERATION_TYPE_DELETE);
+        User user = getUser(userId);
+        if (user.getUserId().equals(user.getTenantId())) {
+            logger.error("异常码[{}],异常提示[{}],参数,userId:[{}]",
+                    ExceptionConstants.USER_LIMIT_TENANT_DELETE_CODE,ExceptionConstants.USER_LIMIT_TENANT_DELETE_MSG,userId);
+            throw new BusinessRunTimeException(ExceptionConstants.USER_LIMIT_TENANT_DELETE_CODE,
+                    ExceptionConstants.USER_LIMIT_TENANT_DELETE_MSG);
+        }
+        sb.append("[").append(user.getLoginName()).append("]");
+        try {
+            // 判断是否登录过
+            Object loginUserId = redisUtil.getObjectFromSessionByKey(request,"userId");
+            if (loginUserId != null) {
+                result = removeById(userId);
+                if(result) {
+                    // 从redis中移除用户的登录状态
+                    redisUtil.deleteObjectByUser(userId);
+                }
+            }
+        } catch (Exception e) {
+            LoggerException.writeFail(logger, e);
+        }
+        if (result) {
+            logger.error("异常码[{}],异常提示[{}],参数,userId:[{}]",
+                    ExceptionConstants.USER_DELETE_FAILED_CODE,ExceptionConstants.USER_DELETE_FAILED_MSG,userId);
+            throw new BusinessRunTimeException(ExceptionConstants.USER_DELETE_FAILED_CODE,
+                    ExceptionConstants.USER_DELETE_FAILED_MSG);
+        }
+        return result;
     }
 
     @Override
-    public UserVO updateUser(UserVO userVO, HttpServletRequest request) {
-        return null;
+    @Transactional(value = "transactionManager", rollbackFor = Exception.class)
+    public boolean batchDeleteUser(List<String> ids, HttpServletRequest request) {
+        boolean result = false;
+        StringBuilder sb = new StringBuilder();
+        sb.append(BusinessConstants.LOG_OPERATION_TYPE_DELETE);
+        List<User> userList = listByIds(ids);
+        for(User user: userList){
+            if(user.getUserId().equals(user.getTenantId())) {
+                logger.error("异常码[{}],异常提示[{}],参数,ids:[{}]",
+                        ExceptionConstants.USER_LIMIT_TENANT_DELETE_CODE,ExceptionConstants.USER_LIMIT_TENANT_DELETE_MSG,ids);
+                throw new BusinessRunTimeException(ExceptionConstants.USER_LIMIT_TENANT_DELETE_CODE,
+                        ExceptionConstants.USER_LIMIT_TENANT_DELETE_MSG);
+            }
+            sb.append("[").append(user.getLoginName()).append("]");
+        }
+        try {
+            // 判断是否登录过
+            Object loginUserId = redisUtil.getObjectFromSessionByKey(request,"userId");
+            if (loginUserId != null) {
+                result = removeByIds(ids);
+                if(result) {
+                    // 从redis中移除这些用户的登录状态
+                    redisUtil.deleteObjectByUser(String.valueOf(ids));
+                }
+            }
+        } catch (Exception e) {
+            LoggerException.writeFail(logger, e);
+        }
+        if (result) {
+            logger.error("异常码[{}],异常提示[{}],参数,ids:[{}]",
+                    ExceptionConstants.USER_DELETE_FAILED_CODE,ExceptionConstants.USER_DELETE_FAILED_MSG,ids);
+            throw new BusinessRunTimeException(ExceptionConstants.USER_DELETE_FAILED_CODE,
+                    ExceptionConstants.USER_DELETE_FAILED_MSG);
+        }
+        return result;
+
+    }
+
+    @Override
+    @Transactional(value = "transactionManager", rollbackFor = Exception.class)
+    public boolean updateUser(User user, HttpServletRequest request) {
+        try {
+            // 判断是否登录过
+            Object userId = redisUtil.getObjectFromSessionByKey(request,"userId");
+            if (userId != null) {
+                saveOrUpdate(user);
+            }
+        } catch (Exception e) {
+            LoggerException.writeFail(logger, e);
+        }
+        return true;
     }
 
     @Override
     public User getCurrentUser() {
         HttpServletRequest request = ((ServletRequestAttributes) Objects.requireNonNull(
                 RequestContextHolder.getRequestAttributes())).getRequest();
-        String userId = redisServiceUtil.getObjectFromSessionByKey(request,"userId").toString();
-        return getUser(userId);
+        Object userId = redisUtil.getObjectFromSessionByKey(request,"userId");
+        return getUser(userId.toString());
     }
+
+
+    // ============================= 私有方法 =============================
+
 
     /**
      * 根据登录名获取用户id
@@ -218,7 +435,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
         queryWrapper.eq("user_status", BusinessConstants.USER_STATUS_NORMAL);
         queryWrapper.ne("is_deleted", BusinessConstants.DELETE_FLAG_DELETED);
         User user = getOne(queryWrapper);
-        if(user != null) {
+        if (user != null) {
             userId = user.getUserId();
         }
         return userId;
@@ -246,6 +463,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
                     }
 
                     String tenantId = list.getFirst().getTenantId();
+
                     // TODO 校验租户信息
 
                 }
@@ -316,7 +534,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
      * 获取用户id
      */
     private String getUserId(HttpServletRequest request) {
-        Object userIdObj = redisServiceUtil.getObjectFromSessionByKey(request,"userId");
+        Object userIdObj = redisUtil.getObjectFromSessionByKey(request,"userId");
         String userId = null;
         if (userIdObj != null) {
             userId = userIdObj.toString();
