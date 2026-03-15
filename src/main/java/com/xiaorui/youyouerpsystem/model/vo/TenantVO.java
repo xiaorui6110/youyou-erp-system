@@ -7,6 +7,7 @@ import lombok.EqualsAndHashCode;
 
 import java.io.Serial;
 import java.io.Serializable;
+import java.time.LocalDateTime;
 
 /**
  * @description: 租户VO
@@ -38,11 +39,11 @@ public class TenantVO extends Tenant implements Serializable {
     /**
      * 创建时间
      */
-    private String createTime;
+    private LocalDateTime createTime;
 
     /**
      * 过期时间
      */
-    private String expireTime;
+    private LocalDateTime expireTime;
 
 }

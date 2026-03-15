@@ -61,24 +61,42 @@ CREATE TABLE `youyou_tenant` (
      INDEX `idx_tenant_expire` (`expire_time`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='租户表' ROW_FORMAT=DYNAMIC;
 
--- TODO 用户/角色/模块关系表
+-- 用户/角色/模块关系表
 DROP TABLE IF EXISTS `youyou_user_business`;
-CREATE TABLE `youyou_user_business`  (
-  `user_business_id` varchar(100) NOT NULL COMMENT '主键',
-  `type` varchar(50) CHARACTER SET utf8 COLLATE utf8_general_ci NULL DEFAULT NULL COMMENT '类别',
-  `key_id` varchar(50) CHARACTER SET utf8 COLLATE utf8_general_ci NULL DEFAULT NULL COMMENT '主id',
-  `value` varchar(10000) CHARACTER SET utf8 COLLATE utf8_general_ci NULL DEFAULT NULL COMMENT '值',
-  `btn_str` varchar(2000) CHARACTER SET utf8 COLLATE utf8_general_ci NULL DEFAULT NULL COMMENT '按钮权限',
-  `tenant_id` varchar(100) NULL DEFAULT NULL COMMENT '租户id',
-  `is_deleted` varchar(1) CHARACTER SET utf8 COLLATE utf8_general_ci NULL DEFAULT '0' COMMENT '删除标记，0未删除，1删除',
-  PRIMARY KEY (`id`) USING BTREE,
-  INDEX `type`(`type`) USING BTREE,
-  INDEX `key_id`(`key_id`) USING BTREE,
-  INDEX `tenant_id`(`tenant_id`) USING BTREE
-) ENGINE = InnoDB AUTO_INCREMENT = 83 CHARACTER SET = utf8 COLLATE = utf8_general_ci COMMENT = '用户/角色/模块关系表' ROW_FORMAT = Dynamic;
+CREATE TABLE `youyou_user_business` (
+    `user_business_id` varchar(100) NOT NULL COMMENT '用户/角色/模块关系主键',
+    `relate_type` varchar(50) NOT NULL COMMENT '关系类别：user-用户，role-角色，module-模块',
+    `key_id` varchar(100) NOT NULL COMMENT '主id（用户id/角色id/菜单id）',
+    `relate_value` varchar(1000) DEFAULT NULL COMMENT '关联值（权限串/配置值）',
+    `btn_str` varchar(2000) DEFAULT NULL COMMENT '按钮权限字符串',
+    `tenant_id` varchar(100) DEFAULT NULL COMMENT '租户id',
+    `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    `is_deleted` varchar(1) DEFAULT '0' COMMENT '删除标记，0-未删除，1-删除',
+    PRIMARY KEY (`user_business_id`),
+    INDEX `idx_type_key` (`relate_type`, `key_id`),
+    INDEX `idx_tenant` (`tenant_id`),
+    INDEX `idx_type_tenant` (`relate_type`, `tenant_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='用户-角色-模块权限关系表' ROW_FORMAT=DYNAMIC;
 
-
-
-
+-- 操作日志表
+DROP TABLE IF EXISTS `youyou_log`;
+CREATE TABLE `youyou_log` (
+      `log_id` varchar(100) NOT NULL COMMENT '操作日志主键',
+      `user_id` varchar(100) DEFAULT NULL COMMENT '操作用户id',
+      `operation` varchar(500) DEFAULT NULL COMMENT '操作模块/操作描述',
+      `client_ip` varchar(60) DEFAULT NULL COMMENT '客户端ip地址',
+      `log_status` tinyint(1) NOT NULL DEFAULT 0 COMMENT '操作状态 0-成功 1-失败',
+      `log_content` varchar(5000)DEFAULT NULL COMMENT '操作详情/参数/返回结果',
+      `tenant_id` varchar(100) DEFAULT NULL COMMENT '租户id',
+      `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+      `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+      `is_deleted` varchar(1) DEFAULT '0' COMMENT '删除标记，0-未删除，1-删除',
+      PRIMARY KEY (`log_id`),
+      INDEX `idx_user_id` (`user_id`),
+      INDEX `idx_tenant_id` (`tenant_id`),
+      INDEX `idx_create_time` (`create_time`),
+      INDEX `idx_log_status` (`log_status`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='系统操作日志表' ROW_FORMAT=DYNAMIC;
 
 
