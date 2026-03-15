@@ -6,18 +6,23 @@ import com.xiaorui.youyouerpsystem.common.constants.BusinessConstants;
 import com.xiaorui.youyouerpsystem.common.exception.LoggerException;
 import com.xiaorui.youyouerpsystem.mapper.UserBusinessMapper;
 import com.xiaorui.youyouerpsystem.model.entity.UserBusiness;
+import com.xiaorui.youyouerpsystem.service.ILogService;
 import com.xiaorui.youyouerpsystem.service.IUserBusinessService;
 import com.xiaorui.youyouerpsystem.service.IUserService;
 import jakarta.annotation.Resource;
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.context.request.RequestContextHolder;
+import org.springframework.web.context.request.ServletRequestAttributes;
 
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 /**
  * <p>
@@ -35,19 +40,21 @@ public class UserBusinessServiceImpl extends ServiceImpl<UserBusinessMapper, Use
 
     @Resource
     private IUserService userService;
+    @Resource
+    private ILogService logService;
 
     // ============================= 增删改查 =============================
 
     @Override
     @Transactional(value = "transactionManager", rollbackFor = Exception.class)
-    public boolean createUserBusiness(UserBusiness userBusiness) {
+    public boolean createUserBusiness(UserBusiness userBusiness, HttpServletRequest request) {
         try {
             String relateValue = userBusiness.getRelateValue();
             String newRelateValue = relateValue.replaceAll(",", "][");
             newRelateValue = newRelateValue.replaceAll("\\[0]","").replaceAll("\\[]","");
             userBusiness.setRelateValue(newRelateValue);
             save(userBusiness);
-            //logService.insertLog("关联关系", BusinessConstants.LOG_OPERATION_TYPE_ADD, request);
+            logService.createLogWithOperation("关联关系", BusinessConstants.LOG_OPERATION_TYPE_ADD, request);
         } catch(Exception e) {
             LoggerException.writeFail(logger,e);
         }
@@ -56,14 +63,14 @@ public class UserBusinessServiceImpl extends ServiceImpl<UserBusinessMapper, Use
 
     @Override
     @Transactional(value = "transactionManager", rollbackFor = Exception.class)
-    public boolean updateUserBusiness(UserBusiness userBusiness) {
+    public boolean updateUserBusiness(UserBusiness userBusiness, HttpServletRequest request) {
         try{
             String relateValue = userBusiness.getRelateValue();
             String newRelateValue = relateValue.replaceAll(",", "][");
             newRelateValue = newRelateValue.replaceAll("\\[0]","").replaceAll("\\[]","");
             userBusiness.setRelateValue(newRelateValue);
             updateById(userBusiness);
-            //logService.insertLog("关联关系", BusinessConstants.LOG_OPERATION_TYPE_EDIT, request);
+            logService.createLogWithOperation("关联关系", BusinessConstants.LOG_OPERATION_TYPE_EDIT, request);
         } catch(Exception e) {
             LoggerException.writeFail(logger,e);
         }
@@ -76,6 +83,9 @@ public class UserBusinessServiceImpl extends ServiceImpl<UserBusinessMapper, Use
         try {
             if (BusinessConstants.DEFAULT_MANAGER.equals(userService.getCurrentUser().getLoginName())) {
                 removeById(userBusinessId);
+                logService.createLogWithOperation("关联关系",
+                        BusinessConstants.LOG_OPERATION_TYPE_DELETE + userBusinessId,
+                        ((ServletRequestAttributes) Objects.requireNonNull(RequestContextHolder.getRequestAttributes())).getRequest());
             }
         } catch (Exception e) {
             LoggerException.writeFail(logger,e);
@@ -89,6 +99,9 @@ public class UserBusinessServiceImpl extends ServiceImpl<UserBusinessMapper, Use
         try {
             if (BusinessConstants.DEFAULT_MANAGER.equals(userService.getCurrentUser().getLoginName())) {
                 removeByIds(userBusinessIds);
+                logService.createLogWithOperation("关联关系",
+                        BusinessConstants.LOG_OPERATION_TYPE_DELETE + userBusinessIds,
+                        ((ServletRequestAttributes) Objects.requireNonNull(RequestContextHolder.getRequestAttributes())).getRequest());
             }
         } catch (Exception e) {
             LoggerException.writeFail(logger,e);
@@ -139,9 +152,9 @@ public class UserBusinessServiceImpl extends ServiceImpl<UserBusinessMapper, Use
     @Override
     @Transactional(value = "transactionManager", rollbackFor = Exception.class)
     public boolean updateBtnStr(String keyId, String relateType, String btnStr) {
-//        logService.insertLog("关联关系",
-//                new StringBuffer(BusinessConstants.LOG_OPERATION_TYPE_EDIT).append("角色的按钮权限").toString(),
-//                ((ServletRequestAttributes) RequestContextHolder.getRequestAttributes()).getRequest());
+        logService.createLogWithOperation("关联关系",
+                BusinessConstants.LOG_OPERATION_TYPE_EDIT + "角色的按钮权限",
+                ((ServletRequestAttributes) Objects.requireNonNull(RequestContextHolder.getRequestAttributes())).getRequest());
         UserBusiness userBusiness = new UserBusiness();
         userBusiness.setBtnStr(btnStr);
         QueryWrapper<UserBusiness> queryWrapper = new QueryWrapper<>();

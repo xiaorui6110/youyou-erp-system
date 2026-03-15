@@ -9,6 +9,7 @@ import com.xiaorui.youyouerpsystem.mapper.TenantMapper;
 import com.xiaorui.youyouerpsystem.model.entity.Tenant;
 import com.xiaorui.youyouerpsystem.model.entity.User;
 import com.xiaorui.youyouerpsystem.model.vo.UserVO;
+import com.xiaorui.youyouerpsystem.service.ILogService;
 import com.xiaorui.youyouerpsystem.service.ITenantService;
 import com.xiaorui.youyouerpsystem.service.IUserService;
 import jakarta.annotation.Resource;
@@ -18,8 +19,11 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.context.request.RequestContextHolder;
+import org.springframework.web.context.request.ServletRequestAttributes;
 
 import java.util.List;
+import java.util.Objects;
 
 /**
  * <p>
@@ -37,6 +41,8 @@ public class TenantServiceImpl extends ServiceImpl<TenantMapper, Tenant> impleme
 
     @Resource
     private IUserService userService;
+    @Resource
+    private ILogService logService;
 
     @Value("${youyou.manage.role-id}")
     private String manageRoleId;
@@ -142,9 +148,9 @@ public class TenantServiceImpl extends ServiceImpl<TenantMapper, Tenant> impleme
                 } else {
                     statusStr = "批量禁用";
                 }
-
-                // TODO logService
-
+                logService.createLogWithOperation("用户",
+                        BusinessConstants.LOG_OPERATION_TYPE_EDIT + tenantIds + "-" + statusStr,
+                        ((ServletRequestAttributes) Objects.requireNonNull(RequestContextHolder.getRequestAttributes())).getRequest());
                 Tenant tenant = new Tenant();
                 tenant.setIsEnabled(status);
                 QueryWrapper<Tenant> queryWrapper = new QueryWrapper<>();

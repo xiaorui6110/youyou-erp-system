@@ -86,7 +86,7 @@ CREATE TABLE `youyou_log` (
       `user_id` varchar(100) DEFAULT NULL COMMENT '操作用户id',
       `operation` varchar(500) DEFAULT NULL COMMENT '操作模块/操作描述',
       `client_ip` varchar(60) DEFAULT NULL COMMENT '客户端ip地址',
-      `log_status` tinyint(1) NOT NULL DEFAULT 0 COMMENT '操作状态 0-成功 1-失败',
+      `log_status` tinyint(1) NOT NULL DEFAULT 1 COMMENT '操作状态 操作状态 0-失败 1-成功',
       `log_content` varchar(5000)DEFAULT NULL COMMENT '操作详情/参数/返回结果',
       `tenant_id` varchar(100) DEFAULT NULL COMMENT '租户id',
       `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',

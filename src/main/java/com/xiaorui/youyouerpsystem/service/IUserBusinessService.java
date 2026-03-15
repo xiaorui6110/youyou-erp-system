@@ -2,6 +2,7 @@ package com.xiaorui.youyouerpsystem.service;
 
 import com.baomidou.mybatisplus.extension.service.IService;
 import com.xiaorui.youyouerpsystem.model.entity.UserBusiness;
+import jakarta.servlet.http.HttpServletRequest;
 
 import java.util.List;
 
@@ -21,17 +22,19 @@ public interface IUserBusinessService extends IService<UserBusiness> {
      * 创建用户-角色-模块权限关系
      *
      * @param userBusiness 用户-角色-模块权限关系
+     * @param request 请求对象
      * @return 是否创建成功
      */
-    boolean createUserBusiness(UserBusiness userBusiness);
+    boolean createUserBusiness(UserBusiness userBusiness, HttpServletRequest request);
 
     /**
      * 修改用户-角色-模块权限关系
      *
      * @param userBusiness 用户-角色-模块权限关系
+     * @param request 请求对象
      * @return 是否修改成功
      */
-    boolean updateUserBusiness(UserBusiness userBusiness);
+    boolean updateUserBusiness(UserBusiness userBusiness, HttpServletRequest request);
 
     /**
      * 删除用户-角色-模块权限关系

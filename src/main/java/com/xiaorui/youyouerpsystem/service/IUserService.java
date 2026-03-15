@@ -153,6 +153,26 @@ public interface IUserService extends IService<User> {
      */
     User getCurrentUser();
 
+    /**
+     * 获取当前用户id
+     *
+     * @param request 请求对象
+     * @return 用户id
+     */
+    String getUserId(HttpServletRequest request);
+
+    /**
+     * 创建用户
+     *
+     * @param user 用户信息
+     * @param request 请求对象
+     * @return 是否创建成功
+     */
+    boolean createUser(User user, HttpServletRequest request);
+
+
+
+
     // ============================= 扩展方法 =============================
 
 

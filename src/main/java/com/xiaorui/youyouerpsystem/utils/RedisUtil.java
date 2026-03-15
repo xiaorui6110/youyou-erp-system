@@ -191,7 +191,7 @@ public class RedisUtil {
      * @param userId 用户ID
      * @param clientIp 客户端IP
      */
-    public void deleteObjectByUserAndIp(Long userId, String clientIp) {
+    public void deleteObjectByUserAndIp(String userId, String clientIp) {
         // 空值校验
         if (userId == null || clientIp == null || clientIp.isEmpty()) {
             log.warn("deleteObjectByUserAndIp: userId或clientIp为空");
@@ -205,7 +205,6 @@ public class RedisUtil {
                 return;
             }
 
-            String targetUserId = userId.toString();
             for (String token : tokens) {
                 // 检查键是否存在且为哈希类型
                 if (redisTemplate.hasKey(token) && Objects.equals(redisTemplate.type(token), DataType.HASH)) {
@@ -213,7 +212,7 @@ public class RedisUtil {
                     Object clientIpValue = redisTemplate.opsForHash().get(token, "clientIp");
 
                     // 精准匹配
-                    if (targetUserId.equals(userIdValue) && clientIp.equals(clientIpValue)) {
+                    if (userId.equals(userIdValue) && clientIp.equals(clientIpValue)) {
                         redisTemplate.opsForHash().delete(token, "userId");
                         log.debug("根据用户ID和IP删除Redis缓存成功，userId: {}, ip: {}", userId, clientIp);
                     }

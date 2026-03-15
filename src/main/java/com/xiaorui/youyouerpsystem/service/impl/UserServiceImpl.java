@@ -15,8 +15,11 @@ import com.xiaorui.youyouerpsystem.common.response.BusinessCodeEnum;
 import com.xiaorui.youyouerpsystem.mapper.UserMapper;
 import com.xiaorui.youyouerpsystem.model.entity.Tenant;
 import com.xiaorui.youyouerpsystem.model.entity.User;
+import com.xiaorui.youyouerpsystem.model.entity.UserBusiness;
 import com.xiaorui.youyouerpsystem.model.vo.UserVO;
+import com.xiaorui.youyouerpsystem.service.ILogService;
 import com.xiaorui.youyouerpsystem.service.ITenantService;
+import com.xiaorui.youyouerpsystem.service.IUserBusinessService;
 import com.xiaorui.youyouerpsystem.service.IUserService;
 import com.xiaorui.youyouerpsystem.utils.RedisUtil;
 import com.xiaorui.youyouerpsystem.utils.ResponseUtil;
@@ -61,6 +64,10 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
     @Resource
     private ITenantService tenantService;
     @Resource
+    private ILogService logService;
+    @Resource
+    private IUserBusinessService userBusinessService;
+    @Resource
     private RedisUtil redisUtil;
     @Resource
     private StringRedisTemplate stringRedisTemplate;
@@ -86,6 +93,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
                 userVO.setIsManager(BusinessConstants.USER_NOT_MANAGER);
             }
             userVO.setUserStatus(BusinessConstants.USER_STATUS_NORMAL);
+
             try {
                 User user = new User();
                 BeanUtils.copyProperties(userVO, user);
@@ -95,21 +103,26 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
             } catch (Exception e) {
                 LoggerException.writeFail(logger, e);
             }
+
             // 更新租户id
             User user = new User();
             user.setUserId(userVO.getUserId());
             user.setTenantId(userVO.getTenantId());
             updateById(user);
 
-            // TODO 新增用户与角色的关系 - UserBusiness
+            // 新增用户与角色的关系
+            UserBusiness userBusiness = new UserBusiness();
+            // TODO 角色模块 - RoleService
+            //userBusiness.setRelateType();
+            userBusiness.setKeyId(userVO.getUserId());
+            userBusiness.setRelateValue(manageRoleId);
+            userBusiness.setTenantId(userVO.getTenantId());
+            userBusinessService.save(userBusiness);
 
             // 创建租户信息
             Tenant tenant = new Tenant();
             tenant.setTenantId(userVO.getTenantId());
             tenant.setUserNumLimit(userVO.getUserNumLimit());
-            tenant.setCreateTime(LocalDateTime.now());
-            tenant.setUpdateTime(LocalDateTime.now());
-            tenant.setCreateTime(LocalDateTime.now());
             if (tenant.getUserNumLimit() == null) {
                 // 默认用户限制数量
                 tenant.setUserNumLimit(userNumLimit);
@@ -135,6 +148,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
             logger.info("==== 用户已经登录过, login 方法调用结束 ====");
             msgTip = "user already login";
         }
+
         //获取用户状态
         int userStatus = -1;
         try {
@@ -144,6 +158,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
             logger.error(">>>>>>>>>>>>> 用户  {} 登录 login 方法 访问服务层异常 ====", loginName, e);
             msgTip = "access service exception";
         }
+
         // TODO 可以使用SaToken生成token
         String token = UUID.randomUUID().toString().replaceAll("-", "");
         switch (userStatus) {
@@ -178,6 +193,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
                 break;
         }
         data.put("msgTip", msgTip);
+
         if(user!=null){
             // 校验下密码是不是过于简单
             boolean pwdSimple = false;
@@ -187,11 +203,15 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
                 throw new RuntimeException(e);
             }
             user.setLoginPassword(null);
+
             if (BusinessConstants.DEFAULT_MANAGER.equals(user.getLoginName())) {
                 // TODO 如果是管理员，则发送登录邮件
                 //sendEmailToCurrentUser(request, user);
             }
             redisUtil.storageObjectBySession(token,"clientIp", Tools.getLocalIp(request));
+            logService.createLogWithUserId(user.getUserId(), user.getTenantId(), "用户",
+                    BusinessConstants.LOG_OPERATION_TYPE_LOGIN + user.getLoginName(),
+                    ((ServletRequestAttributes) Objects.requireNonNull(RequestContextHolder.getRequestAttributes())).getRequest());
             data.put("token", token);
             data.put("user", user);
             data.put("pwdSimple", pwdSimple);
@@ -224,6 +244,9 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
                 user.setLoginPassword(newPassword);
                 user.setUpdateTime(LocalDateTime.now());
                 updateById(user);
+                logService.createLogWithOperation("用户",
+                        BusinessConstants.LOG_OPERATION_TYPE_EDIT + userId,
+                        ((ServletRequestAttributes) Objects.requireNonNull(RequestContextHolder.getRequestAttributes())).getRequest());
                 // 1-成功
                 flag = 1;
                 info = "修改成功";
@@ -258,6 +281,9 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
                 Object loginUserId = redisUtil.getObjectFromSessionByKey(request,"userId");
                 if (loginUserId != null) {
                     updateById(user);
+                    logService.createLogWithOperation("用户",
+                            BusinessConstants.LOG_OPERATION_TYPE_EDIT + userId,
+                            ((ServletRequestAttributes) Objects.requireNonNull(RequestContextHolder.getRequestAttributes())).getRequest());
                 }
             }catch(Exception e){
                 LoggerException.writeFail(logger, e);
@@ -368,10 +394,12 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
             Object loginUserId = redisUtil.getObjectFromSessionByKey(request,"userId");
             if (loginUserId != null) {
                 result = removeById(userId);
-                if(result) {
+                if (result) {
                     // 从redis中移除用户的登录状态
                     redisUtil.deleteObjectByUser(userId);
                 }
+                logService.createLogWithOperation("用户", sb.toString(),
+                        ((ServletRequestAttributes) Objects.requireNonNull(RequestContextHolder.getRequestAttributes())).getRequest());
             }
         } catch (Exception e) {
             LoggerException.writeFail(logger, e);
@@ -406,10 +434,12 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
             Object loginUserId = redisUtil.getObjectFromSessionByKey(request,"userId");
             if (loginUserId != null) {
                 result = removeByIds(ids);
-                if(result) {
+                if (result) {
                     // 从redis中移除这些用户的登录状态
                     redisUtil.deleteObjectByUser(String.valueOf(ids));
                 }
+                logService.createLogWithOperation("用户", sb.toString(),
+                        ((ServletRequestAttributes) Objects.requireNonNull(RequestContextHolder.getRequestAttributes())).getRequest());
             }
         } catch (Exception e) {
             LoggerException.writeFail(logger, e);
@@ -432,6 +462,8 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
             Object userId = redisUtil.getObjectFromSessionByKey(request,"userId");
             if (userId != null) {
                 saveOrUpdate(user);
+                logService.createLogWithOperation("用户",
+                        BusinessConstants.LOG_OPERATION_TYPE_EDIT + user.getLoginName(), request);
             }
         } catch (Exception e) {
             LoggerException.writeFail(logger, e);
@@ -445,6 +477,43 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
                 RequestContextHolder.getRequestAttributes())).getRequest();
         Object userId = redisUtil.getObjectFromSessionByKey(request,"userId");
         return getUser(userId.toString());
+    }
+
+    /**
+     * 获取用户id
+     */
+    @Override
+    public String getUserId(HttpServletRequest request) {
+        Object userIdObj = redisUtil.getObjectFromSessionByKey(request,"userId");
+        String userId = null;
+        if (userIdObj != null) {
+            userId = userIdObj.toString();
+        }
+        return userId;
+    }
+
+    @Override
+    @Transactional(value = "transactionManager", rollbackFor = Exception.class)
+    public boolean createUser(User user, HttpServletRequest request) {
+        String password = "123456";
+
+        // TODO 因密码用MD5加密，需要对密码进行转化， 【这里密码相关需要使用 Spring Security 优化】
+
+        try {
+            password = Tools.md5Encryp(password);
+            user.setLoginPassword(password);
+        } catch (NoSuchAlgorithmException e) {
+            logger.error(">>>>>>>>>>>>>> 转化MD5字符串错误 ：" + e.getMessage());
+        }
+
+        try {
+            save(user);
+            logService.createLogWithOperation("用户",
+                    BusinessConstants.LOG_OPERATION_TYPE_ADD + user.getLoginName(), request);
+        } catch (Exception e) {
+            LoggerException.writeFail(logger, e);
+        }
+        return true;
     }
 
 
@@ -587,18 +656,6 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
             LoggerException.readFail(logger, e);
         }
         return user;
-    }
-
-    /**
-     * 获取用户id
-     */
-    private String getUserId(HttpServletRequest request) {
-        Object userIdObj = redisUtil.getObjectFromSessionByKey(request,"userId");
-        String userId = null;
-        if (userIdObj != null) {
-            userId = userIdObj.toString();
-        }
-        return userId;
     }
 
     /**
