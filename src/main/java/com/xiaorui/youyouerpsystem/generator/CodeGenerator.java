@@ -23,9 +23,9 @@ import static com.baomidou.mybatisplus.generator.config.rules.DateType.TIME_PACK
 public class CodeGenerator {
 
     /**
-     * ⏰ 需要生成的表名（每次修改表名生成，并修改自定义生成风格的信息）
+     * 需要生成的表名（每次修改表名生成，并修改自定义生成风格的信息）
      */
-    private static final String TABLE_NAMES = "youyou_log";
+    private static final String TABLE_NAMES = "youyou_account_item";
 
     public static void main(String[] args) {
 

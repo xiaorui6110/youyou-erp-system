@@ -42,9 +42,7 @@ public class LogServiceImpl extends ServiceImpl<LogMapper, Log> implements ILogS
     @Resource
     private RedisUtil redisUtil;
 
-
     // ============================= 增删改查 =============================
-
 
     @Override
     public boolean createLog(Log log) {

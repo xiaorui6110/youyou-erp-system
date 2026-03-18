@@ -30,7 +30,7 @@ public class Log implements Serializable {
     /**
      * 操作日志主键
      */
-    @TableId(value = "tenant_id", type = IdType.ASSIGN_ID)
+    @TableId(value = "log_id", type = IdType.ASSIGN_ID)
     private String logId;
 
     /**

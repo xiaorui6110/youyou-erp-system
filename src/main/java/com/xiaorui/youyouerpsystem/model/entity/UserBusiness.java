@@ -30,7 +30,7 @@ public class UserBusiness implements Serializable {
     /**
      * 用户/角色/模块关系主键
      */
-    @TableId(value = "tenant_id", type = IdType.ASSIGN_ID)
+    @TableId(value = "user_business_id", type = IdType.ASSIGN_ID)
     private String userBusinessId;
 
     /**

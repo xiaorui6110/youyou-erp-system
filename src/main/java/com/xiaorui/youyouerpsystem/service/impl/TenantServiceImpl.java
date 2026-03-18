@@ -47,6 +47,8 @@ public class TenantServiceImpl extends ServiceImpl<TenantMapper, Tenant> impleme
     @Value("${youyou.manage.role-id}")
     private String manageRoleId;
 
+    // ============================= 增删改查 =============================
+
     @Override
     @Transactional(value = "transactionManager", rollbackFor = Exception.class)
     public boolean createTenant(UserVO userVO) {
